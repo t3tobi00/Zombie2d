@@ -6,7 +6,8 @@ export class Player extends Character {
     constructor(scene, x, y, textureKey = 'player') {
         super(scene, x, y, textureKey);
 
-        this.movement = new Movement(scene, 250);
+        this.baseSpeed = 250; // Store the original healthy speed
+        this.movement = new Movement(scene, this.baseSpeed);
         this.stackManager = new StackManager(scene, this);
 
         // Velocity vector re-used each frame to avoid GC pressure.
@@ -14,6 +15,20 @@ export class Player extends Character {
     }
 
     update(time, delta) {
+        // ── 0. Calculate Weight Penalty (The CBSS Friction) ──────────────
+        const stackSize = this.stackManager.items.length;
+
+        // Exponential math: Math.pow(size, 1.3) gives a gentle curve that gets steeper.
+        // Multiply by 4 to scale the severity.
+        const penalty = Math.pow(stackSize, 1.3) * 4;
+
+        // Cap the minimum speed so the player never completely freezes
+        const minSpeed = 50;
+
+        // Dynamically update the Movement component's speed
+        this.movement.speed = Math.max(minSpeed, this.baseSpeed - penalty);
+
+
         // ── 1. Resolve input → velocity ──────────────────────────────────
         const raw = this.movement.getVelocity();
         this._velocity.set(raw.x, raw.y);
@@ -30,7 +45,6 @@ export class Player extends Character {
         this.updateFacing(this._velocity, time, delta);
 
         // ── 5. Update the stack (it manages its own world position) ──────
-
         const isMoving = this._velocity.length() > 10;
         this.stackManager.update(time, delta, isMoving);
     }
