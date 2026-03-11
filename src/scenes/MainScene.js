@@ -3,6 +3,7 @@ import { GridEnvironment } from '../environment/GridEnvironment.js';
 import { Player } from '../entities/Player.js';
 import { ResourceDrop } from '../entities/ResourceDrop.js';
 import { UnlockZone } from '../assets/zones/UnlockZone.js';
+import { StorageZone } from '../assets/zones/StorageZone.js';
 
 export class MainScene extends Phaser.Scene {
     constructor() {
@@ -18,12 +19,11 @@ export class MainScene extends Phaser.Scene {
         this.player = new Player(this, 100, 100, 'player');
         this.player.setDepth(10);
 
-        // Define the magnetic pull distance
-        this.magnetRadius = 120;
 
         // --- SPAWN DROPS TO TEST ---
         this.dropsGroup = this.add.group();
-        this.unlockZones = this.add.group(); // Group for our interactive zones
+        this.unlockZones = this.add.group(); 
+        this.storageZones = this.add.group(); // New group for storage zones
 
         // Spawn some coins
         for (let i = 0; i < 10; i++) {
@@ -67,17 +67,29 @@ export class MainScene extends Phaser.Scene {
             onComplete: () => console.log("BOUGHT HOUSE!")
         });
         this.unlockZones.add(zone);
+        
+        this.storageZones.add(new StorageZone(this, 500, 500, {
+            plate_normal: 'plate_normal',
+            plate_pressed: 'plate_pressed',
+            depth: 8,
+            resourceType: 'item_coin' // Strictly coins for this one
+        }));
     }
 
     update(time, delta) {
         this.player.update(time, delta);
-
-        // Process magnetism
-        this.player.stackManager.processMagnetism(this.dropsGroup, this.magnetRadius);
+        
+        // Update all storage zones (for wobbles/stack animations)
+        this.storageZones.getChildren().forEach(zone => zone.update(time, delta));
 
         // Process Unlock Zones overlap
         this.physics.overlap(this.player, this.unlockZones, (p, zone) => {
-            zone.processPlayerOverlap(this.player, time, delta);
+            zone.handleInteraction(this.player, delta);
+        });
+
+        // Process Storage Zones overlap (New!)
+        this.physics.overlap(this.player, this.storageZones, (p, zone) => {
+            zone.handleInteraction(this.player, delta);
         });
     }
 }

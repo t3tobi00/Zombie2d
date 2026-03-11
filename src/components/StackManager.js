@@ -10,7 +10,8 @@ export class StackManager {
         // Stack configuration parameters
         this.config = Object.assign({
             allowedItems: null,   // Array of texture keys e.g. ['item_coin']. If null, allows any.
-            allowMixed: false     // If false, can only carry ONE type of item at a time
+            allowMixed: false,    // If false, can only carry ONE type of item at a time
+            magnetRadius: 0       // Range for the magnetic pull
         }, config);
 
         this.container = scene.add.container(owner.x, owner.y);
@@ -201,8 +202,11 @@ export class StackManager {
         this._landingEmitter.emitParticleAt(worldX, worldY, 10);
     }
 
-    processMagnetism(dropsGroup, radius) {
+    processMagnetism(dropsGroup, radiusOverride = null) {
         if (!dropsGroup) return;
+
+        const radius = radiusOverride !== null ? radiusOverride : this.config.magnetRadius;
+        if (radius <= 0) return;
 
         const drops = dropsGroup.getChildren();
         for (let i = 0; i < drops.length; i++) {

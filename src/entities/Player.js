@@ -15,7 +15,8 @@ export class Player extends Character {
         // - allowMixed: false means they can only hold one type at a time.
         this.stackManager = new StackManager(scene, this, {
             allowedItems: ['item_coin'], 
-            allowMixed: false
+            allowMixed: false,
+            magnetRadius: 120
         });
 
         // Velocity vector re-used each frame to avoid GC pressure.
@@ -55,5 +56,10 @@ export class Player extends Character {
         // ── 5. Update the stack (it manages its own world position) ──────
         const isMoving = this._velocity.length() > 10;
         this.stackManager.update(time, delta, isMoving);
+
+        // ── 6. Process magnetism ─────────────────────────────────────────
+        if (this.scene.dropsGroup) {
+            this.stackManager.processMagnetism(this.scene.dropsGroup);
+        }
     }
 }
