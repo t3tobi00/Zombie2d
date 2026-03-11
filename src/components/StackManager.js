@@ -1,3 +1,5 @@
+import { ResourceAnimator } from '../utils/ResourceAnimator.js';
+
 export class StackManager {
     constructor(scene, owner) {
         this.scene = scene;
@@ -238,42 +240,10 @@ export class StackManager {
         const stackIndex = this.items.length;
         item.stackY = -(stackIndex * this.itemSpacing);
 
-        this.scene.tweens.add({
-            targets: item,
-            y: item.y - 30,
-            scaleY: 0.75,
-            duration: this.animSpeed * 0.3,
-            ease: 'Sine.easeOut',
-            onComplete: () => this._startArcPhase(item),
-        });
-    }
-
-    _startArcPhase(item) {
-        const arcDuration = this.animSpeed * 0.7;
-
-        this.scene.tweens.add({
-            targets: item,
-            x: 0,
-            y: item.stackY,
-            duration: arcDuration,
-            ease: 'Power2.easeInOut',
+        // --- Extracted to ResourceAnimator ---
+        ResourceAnimator.flyTo(item, { x: 0, y: item.stackY }, {
+            duration: this.animSpeed,
             onComplete: () => this.onStackTweenComplete(item),
-        });
-
-        this.scene.tweens.add({
-            targets: item,
-            scaleX: -1,
-            scaleY: 1,
-            duration: arcDuration * 0.5,
-            ease: 'Sine.easeIn',
-            onComplete: () => {
-                this.scene.tweens.add({
-                    targets: item,
-                    scaleX: 1,
-                    duration: arcDuration * 0.5,
-                    ease: 'Sine.easeOut',
-                });
-            },
         });
     }
 
@@ -286,31 +256,8 @@ export class StackManager {
 
         this._onLanding(itemSprite);
 
-        this.scene.tweens.add({
-            targets: itemSprite,
-            scaleX: 1.4,
-            scaleY: 0.55,
-            duration: 55,
-            ease: 'Quad.easeOut',
-            onComplete: () => {
-                this.scene.tweens.add({
-                    targets: itemSprite,
-                    scaleX: 0.82,
-                    scaleY: 1.25,
-                    duration: 75,
-                    ease: 'Quad.easeOut',
-                    onComplete: () => {
-                        this.scene.tweens.add({
-                            targets: itemSprite,
-                            scaleX: 1,
-                            scaleY: 1,
-                            duration: 160,
-                            ease: 'Elastic.easeOut',
-                        });
-                    },
-                });
-            },
-        });
+        // --- Extracted to ResourceAnimator ---
+        ResourceAnimator.playImpact(itemSprite);
 
         this.collectionQueue.shift();
         this.processNextInQueue();
