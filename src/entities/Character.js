@@ -11,49 +11,46 @@ export const DIR = Object.freeze({
 /**
  * Character – base class.
  *
- * Manages ALL visuals and procedural animation.
- * Contains ZERO game-logic knowledge (no input, no enemies).
- *
  * Layer z-order (index 0 = bottom, drawn first):
  *   0  hairBack
- *   1  legLeft
- *   2  legRight
- *   3  torso
- *   4  head
- *   5  faceOverlay
- *   6  hairFront
- *   7  hairSide
+ *   1  backpackStrap
+ *   2  legLeft
+ *   3  legRight
+ *   4  torso
+ *   5  head
+ *   6  faceOverlay
+ *   7  hairFront
+ *   8  hairSide
  */
 export class Character extends Phaser.GameObjects.Container {
-    // ─────────────────────────────────────────────────────────────────────
-    // Construction
-    // ─────────────────────────────────────────────────────────────────────
-
     constructor(scene, x, y, textureKey = 'player') {
         super(scene, x, y);
 
         this._buildSprites(scene, textureKey);
         this._registerWithScene(scene);
 
-        /** Walk-cycle phase accumulator (radians). */
         this._walkPhase = 0;
-
-        /** Currently active direction state. */
         this.facingDir = DIR.FRONT;
 
-        // Apply initial state without tweening.
         this._applyDirectionState(DIR.FRONT, true);
     }
 
     _buildSprites(scene, textureKey) {
-        const k = textureKey; // shorthand
+        const k = textureKey;
 
-        // Back-of-head hair (sits BEHIND head in FRONT view; ON TOP in BACK view)
         this.hairBack = scene.add
             .sprite(0, -20, 'hair_back')
             .setOrigin(0.5, 0.5);
 
-        // Legs – origin at top-center so y-offset drives stride cleanly
+        // Backpack strap — thin, dark band on the trailing shoulder.
+        // Uses torso texture scaled way down so no new asset needed.
+        this.backpackStrap = scene.add
+            .sprite(0, 0, 'torso_player')
+            .setOrigin(0.5, 0.5)
+            .setScale(0.18, 0.45)
+            .setTint(0x5a4e3e)
+            .setAlpha(0);
+
         this.legLeft = scene.add
             .sprite(-7, 12, `leg_${k}`)
             .setOrigin(0.5, 0);
@@ -61,66 +58,51 @@ export class Character extends Phaser.GameObjects.Container {
             .sprite(7, 12, `leg_${k}`)
             .setOrigin(0.5, 0);
 
-        // Torso
         this.torso = scene.add
             .sprite(0, 4, 'torso_player')
             .setOrigin(0.5, 0.5);
 
-        // Head circle
         this.head = scene.add
             .sprite(0, -16, 'head_player')
             .setOrigin(0.5, 0.5);
 
-        // Face overlay – swaps between 'face_front' and 'face_side'
         this.faceOverlay = scene.add
             .sprite(0, -16, 'face_front')
             .setOrigin(0.5, 0.5);
 
-        // Top-of-head tuft (FRONT view only)
         this.hairFront = scene.add
             .sprite(0, -30, 'hair_front')
             .setOrigin(0.5, 0.5);
 
-        // Side-profile hair crescent (LEFT / RIGHT views)
         this.hairSide = scene.add
             .sprite(0, -20, 'hair_side')
             .setOrigin(0.5, 0.5);
 
-        // Add in z-order (bottom → top)
         this.add([
-            this.hairBack,   // 0
-            this.legLeft,    // 1
-            this.legRight,   // 2
-            this.torso,      // 3
-            this.head,       // 4
-            this.faceOverlay,// 5
-            this.hairFront,  // 6
-            this.hairSide,   // 7
+            this.hairBack,      // 0
+            this.backpackStrap, // 1
+            this.legLeft,       // 2
+            this.legRight,      // 3
+            this.torso,         // 4
+            this.head,          // 5
+            this.faceOverlay,   // 6
+            this.hairFront,     // 7
+            this.hairSide,      // 8
         ]);
     }
 
     _registerWithScene(scene) {
         scene.add.existing(this);
         scene.physics.add.existing(this);
-        // Hitbox slightly narrower than the visual for good feel
         this.body.setSize(26, 36).setOffset(-13, -18);
         this.body.setCollideWorldBounds(true);
-        // CRITICAL: the container itself must NEVER rotate.
         this.rotation = 0;
     }
 
     // ─────────────────────────────────────────────────────────────────────
-    // Public API – called by Player (or Bot) every frame
+    // Public API
     // ─────────────────────────────────────────────────────────────────────
 
-    /**
-     * Feed the raw velocity vector.
-     * Character resolves the correct direction state and updates animation.
-     *
-     * @param {Phaser.Math.Vector2} velocity
-     * @param {number} time   – scene time (ms)
-     * @param {number} delta  – frame delta (ms)
-     */
     updateFacing(velocity, time, delta) {
         const isMoving = velocity.lengthSq() > 0;
 
@@ -135,13 +117,7 @@ export class Character extends Phaser.GameObjects.Container {
         this._animateWalking(isMoving, delta);
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // Direction resolution
-    // ─────────────────────────────────────────────────────────────────────
-
     _resolveDir(vel) {
-        // Horizontal wins when |x| decisively beats |y|; adds a small
-        // threshold to avoid flickering on pure-diagonal inputs.
         if (Math.abs(vel.x) > Math.abs(vel.y) * 1.15) {
             return vel.x > 0 ? DIR.RIGHT : DIR.LEFT;
         }
@@ -149,13 +125,9 @@ export class Character extends Phaser.GameObjects.Container {
     }
 
     // ─────────────────────────────────────────────────────────────────────
-    // State configuration table
+    // State configuration
     // ─────────────────────────────────────────────────────────────────────
 
-    /**
-     * Returns the target visual properties for each direction state.
-     * All values describe the DESIRED end-state of the tween.
-     */
     _getStateConfig(dir) {
         const isRight = dir === DIR.RIGHT;
 
@@ -165,10 +137,16 @@ export class Character extends Phaser.GameObjects.Container {
                     zOrder: 'front',
                     torso: { scaleX: 1 },
                     head: { x: 0, scaleX: 1 },
-                    faceOverlay: { x: 0, alpha: 1, texture: 'face_front', scaleX: 1 },
-                    hairBack: { alpha: 0.55 }, // subtle halo behind head
+                    faceOverlay: {
+                        x: 0,
+                        alpha: 1,
+                        texture: 'face_front',
+                        scaleX: 1,
+                    },
+                    hairBack: { alpha: 0.55 },
                     hairFront: { alpha: 1 },
                     hairSide: { alpha: 0 },
+                    backpackStrap: { alpha: 0, x: 0 },
                     legLeft: { x: -7, alpha: 1 },
                     legRight: { x: 7, alpha: 1 },
                 };
@@ -178,22 +156,36 @@ export class Character extends Phaser.GameObjects.Container {
                     zOrder: 'back',
                     torso: { scaleX: 1 },
                     head: { x: 0, scaleX: 1 },
-                    faceOverlay: { x: 0, alpha: 0, texture: 'face_front', scaleX: 1 },
-                    hairBack: { alpha: 1 }, // covers the full head
+                    faceOverlay: {
+                        x: 0,
+                        alpha: 0,
+                        texture: 'face_front',
+                        scaleX: 1,
+                    },
+                    hairBack: { alpha: 1 },
                     hairFront: { alpha: 0 },
                     hairSide: { alpha: 0 },
+                    backpackStrap: { alpha: 0, x: 0 },
                     legLeft: { x: -7, alpha: 1 },
                     legRight: { x: 7, alpha: 1 },
                 };
 
             case DIR.LEFT:
-            case DIR.RIGHT:
+            case DIR.RIGHT: {
+                // fwd = +1 when facing right, -1 when facing left
+                const fwd = isRight ? 1 : -1;
+
                 return {
                     zOrder: 'side',
-                    torso: { scaleX: 0.48 },
-                    head: { x: isRight ? 5 : -5, scaleX: 1 },
+                    // ── Subtle narrowing — NOT paper-thin ────────────
+                    torso: { scaleX: 0.5 },
+                    // Head nudged only 3px forward — just enough to
+                    // break symmetry without detaching from body
+                    head: { x: fwd * 3, scaleX: 0.92 },
+                    // Eye sits ~2px ahead of head center — clearly
+                    // "facing that way" but still ON the face
                     faceOverlay: {
-                        x: isRight ? 5 : -5,
+                        x: fwd * 5,
                         alpha: 0.95,
                         texture: 'face_side',
                         scaleX: isRight ? 1 : -1,
@@ -202,18 +194,25 @@ export class Character extends Phaser.GameObjects.Container {
                     hairFront: { alpha: 0 },
                     hairSide: {
                         alpha: 1,
-                        // scaleX flip is applied immediately (not tweened)
                         _immScaleX: isRight ? -1 : 1,
                     },
-                    // Both legs collapse toward center; back leg dims.
-                    legLeft: { x: isRight ? -2 : 2, alpha: isRight ? 0.45 : 1 },
-                    legRight: { x: isRight ? 2 : -2, alpha: isRight ? 1 : 0.45 },
+                    // Strap on the TRAILING shoulder (where stack will sit)
+                    backpackStrap: { alpha: 0.75, x: fwd * -5 },
+                    legLeft: {
+                        x: isRight ? -2 : 2,
+                        alpha: isRight ? 0.45 : 1,
+                    },
+                    legRight: {
+                        x: isRight ? 2 : -2,
+                        alpha: isRight ? 1 : 0.45,
+                    },
                 };
+            }
         }
     }
 
     // ─────────────────────────────────────────────────────────────────────
-    // State application (instant or tweened)
+    // State application
     // ─────────────────────────────────────────────────────────────────────
 
     _applyDirectionState(dir, instant = false) {
@@ -221,15 +220,19 @@ export class Character extends Phaser.GameObjects.Container {
         const duration = instant ? 0 : 160;
         const ease = 'Sine.easeInOut';
 
-        // Kill in-flight tweens so they don't fight the new ones.
         const allParts = [
-            this.torso, this.head, this.faceOverlay,
-            this.hairBack, this.hairFront, this.hairSide,
-            this.legLeft, this.legRight,
+            this.torso,
+            this.head,
+            this.faceOverlay,
+            this.hairBack,
+            this.hairFront,
+            this.hairSide,
+            this.backpackStrap,
+            this.legLeft,
+            this.legRight,
         ];
         this.scene.tweens.killTweensOf(allParts);
 
-        // 1. Texture swaps must happen before tweening alpha in.
         this.faceOverlay.setTexture(cfg.faceOverlay.texture);
         this.faceOverlay.scaleX = cfg.faceOverlay.scaleX;
 
@@ -237,10 +240,8 @@ export class Character extends Phaser.GameObjects.Container {
             this.hairSide.scaleX = cfg.hairSide._immScaleX;
         }
 
-        // 2. Reorder z-layers to match the new view.
         this._reorderLayers(cfg.zOrder);
 
-        // 3. Tween (or snap) every part.
         const parts = [
             [this.torso, cfg.torso],
             [this.head, cfg.head],
@@ -248,14 +249,16 @@ export class Character extends Phaser.GameObjects.Container {
             [this.hairBack, cfg.hairBack],
             [this.hairFront, cfg.hairFront],
             [this.hairSide, cfg.hairSide],
+            [this.backpackStrap, cfg.backpackStrap],
             [this.legLeft, cfg.legLeft],
             [this.legRight, cfg.legRight],
         ];
 
         for (const [sprite, props] of parts) {
-            // Strip any internal-only keys before passing to Phaser.
             const tweenProps = Object.fromEntries(
-                Object.entries(props).filter(([k]) => !k.startsWith('_'))
+                Object.entries(props).filter(
+                    ([k]) => !k.startsWith('_')
+                )
             );
 
             if (instant || duration === 0) {
@@ -271,19 +274,13 @@ export class Character extends Phaser.GameObjects.Container {
         }
     }
 
-    /**
-     * Moves children within the container to produce correct z-ordering
-     * for each camera-facing direction.
-     */
     _reorderLayers(viewType) {
         switch (viewType) {
-            // hairBack sits BEHIND the head (index 0)
             case 'front':
             case 'side':
                 this.moveTo(this.hairBack, 0);
+                this.moveTo(this.backpackStrap, 1);
                 break;
-
-            // hairBack sits ON TOP of the head (last index)
             case 'back':
                 this.bringToTop(this.hairBack);
                 break;
@@ -295,55 +292,61 @@ export class Character extends Phaser.GameObjects.Container {
     // ─────────────────────────────────────────────────────────────────────
 
     _animateWalking(isMoving, delta) {
-        // Accumulate phase at a speed proportional to time
-        const phaseSpeed = 0.007; // radians per ms
+        const phaseSpeed = 0.007;
 
         if (isMoving) {
             this._walkPhase += delta * phaseSpeed;
         } else {
-            // Smoothly decay phase back to rest (legs center)
-            this._walkPhase = Phaser.Math.Linear(this._walkPhase, 0, 0.12);
+            this._walkPhase = Phaser.Math.Linear(
+                this._walkPhase,
+                0,
+                0.12
+            );
         }
 
         const phase = this._walkPhase;
-        const strideY = 5;  // vertical leg swing amplitude
-        const strideX = 2;  // lateral leg sway for FRONT/BACK views
-        const bodyBob = 1;  // how much the whole torso/head bobs
+        const strideY = 5;
+        const strideX = 2;
+        const bodyBob = 1;
 
         if (
             this.facingDir === DIR.FRONT ||
             this.facingDir === DIR.BACK
         ) {
-            // Standard walk: legs swing fore/aft (simulated by y-offset)
-            const base = 12; // leg origin y
+            const base = 12;
             this.legLeft.y = base + Math.sin(phase) * strideY;
-            this.legRight.y = base + Math.sin(phase + Math.PI) * strideY;
+            this.legRight.y =
+                base + Math.sin(phase + Math.PI) * strideY;
 
-            // Slight lateral sway for visual polish
             this.legLeft.x = Phaser.Math.Linear(
-                this.legLeft.x, -7 + Math.sin(phase) * strideX, 0.3
+                this.legLeft.x,
+                -7 + Math.sin(phase) * strideX,
+                0.3
             );
             this.legRight.x = Phaser.Math.Linear(
-                this.legRight.x, 7 + Math.sin(phase + Math.PI) * strideX, 0.3
+                this.legRight.x,
+                7 + Math.sin(phase + Math.PI) * strideX,
+                0.3
             );
 
-            // Body bobs up/down on every full stride
-            const bobOffset = Math.abs(Math.sin(phase)) * bodyBob;
+            const bobOffset =
+                Math.abs(Math.sin(phase)) * bodyBob;
             this.torso.y = 4 - bobOffset;
             this.head.y = -16 - bobOffset;
             this.faceOverlay.y = -16 - bobOffset;
             this.hairFront.y = -30 - bobOffset;
             this.hairBack.y = -20 - bobOffset;
         } else {
-            // Side-profile walk: legs "pass through" each other
-            // We animate y to simulate the leg coming forward vs going back.
             const base = 12;
             this.legLeft.y = base + Math.sin(phase) * strideY;
-            this.legRight.y = base + Math.sin(phase + Math.PI) * strideY;
+            this.legRight.y =
+                base + Math.sin(phase + Math.PI) * strideY;
 
-            // Scale the lead leg slightly larger (closer to camera)
-            const leadScale = 1 + Math.max(0, Math.sin(phase)) * 0.15;
-            const trailScale = 1 - Math.max(0, Math.sin(phase)) * 0.08;
+            const leadScale =
+                1 + Math.max(0, Math.sin(phase)) * 0.15;
+            const trailScale =
+                1 - Math.max(0, Math.sin(phase)) * 0.08;
+
             if (this.facingDir === DIR.RIGHT) {
                 this.legRight.scaleX = leadScale;
                 this.legLeft.scaleX = trailScale;
@@ -352,16 +355,16 @@ export class Character extends Phaser.GameObjects.Container {
                 this.legRight.scaleX = trailScale;
             }
 
-            // Torso slight lean
-            const bobOffset = Math.abs(Math.sin(phase * 2)) * bodyBob;
+            const bobOffset =
+                Math.abs(Math.sin(phase * 2)) * bodyBob;
             this.torso.y = 4 - bobOffset;
             this.head.y = -16 - bobOffset;
             this.faceOverlay.y = -16 - bobOffset;
             this.hairSide.y = -20 - bobOffset;
+            this.backpackStrap.y = 0 - bobOffset;
         }
 
         if (!isMoving) {
-            // Reset leg scales on idle
             this.legLeft.scaleX = 1;
             this.legRight.scaleX = 1;
         }
