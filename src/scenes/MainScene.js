@@ -15,6 +15,7 @@ export class MainScene extends Phaser.Scene {
     create() {
         GridEnvironment.create(this);
         this.player = new Player(this, 400, 300, 'player');
+        this.player.setDepth(5); // Any stable value works — stack will be ±1 of this.
 
         // Define the magnetic pull distance
         this.magnetRadius = 120;
@@ -50,7 +51,7 @@ export class MainScene extends Phaser.Scene {
         // 2. The Scene just tells the Player's StackManager to do its thing!
         // We pass the drops group and the desired radius (120)
         this.player.stackManager.processMagnetism(this.dropsGroup, 120);
-        
+
         // (Optional: You can move the visual magnet circle drawing here if you still want it)
     }
 }
