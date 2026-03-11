@@ -13,23 +13,65 @@ export class StackManager {
 
         // ── Wobble config ────────────────────────────────────────────────
         //
-        // PRIMARY — vertical accordion/clack
-        //   Each item bounces up then compresses back to stackY.
-        //   The phase offset per index makes the wave ripple bottom → top,
-        //   briefly opening and closing the gap between neighbours.
-        this._bounceAmplitude = 12;      // px — vertical travel from stackY
-        this._bounceFrequency = 0.001; // sine speed — tune to match walk cadence
-        this._bouncePhaseStep = 0.55;   // radians between consecutive items
+        // PRIMARY — asymmetric slam bounce
+        //   abs(sin) lifts items up then drops them hard back to stackY.
+        //   Items never sink below stackY — only hop above it.
+        this._bounceAmplitude = 18;      // px — vertical travel from stackY
+        this._bounceFrequency = 0.006;   // ~2 slams/sec at walking pace
+        this._bouncePhaseStep = 0.55;    // radians between consecutive items
         //
         // SECONDARY — horizontal instability
-        //   Represents the natural lean of a tall, unbalanced column.
-        //   Kept deliberately tiny so it reads as physics, not animation.
-        this._swayAmplitude = 2;    // px — absolute max, applied only to top item
-        this._swayFrequency = 0.009;  // independent, slower than bounce
-        this._swayPhaseStep = 0.1;   // radians per item
+        this._swayAmplitude = 2;
+        this._swayFrequency = 0.009;
+        this._swayPhaseStep = 0.1;
         //
         // SHARED
-        this._wobbleLerp = 0.1;   // lerp coefficient — controls settle speed
+        this._wobbleLerp = 0.22;   // snappy settle so items clack down crisply
+
+        // ── Per-item state for impact detection ──────────────────────────
+        this._prevOffsets = new WeakMap();
+
+        // ── Spark tints — cool silver-white, hint of pale gold ────────────
+        const SPARK_TINTS = [0xffffff, 0xeef5ff, 0xfff5cc, 0xffe8a0];
+
+        // Left-shooting sparks (walking slam impact)
+        this._sparkLeft = scene.add.particles(0, 0, 'particle_spark', {
+            speed:    { min: 25, max: 65 },
+            angle:    { min: 155, max: 205 },
+            scale:    { start: 0.55, end: 0 },
+            alpha:    { start: 0.75, end: 0 },
+            tint:     SPARK_TINTS,
+            lifespan: { min: 80,  max: 160 },
+            gravityY: 60,
+            emitting: false,
+        });
+        this._sparkLeft.setDepth(9999);
+
+        // Right-shooting sparks (walking slam impact)
+        this._sparkRight = scene.add.particles(0, 0, 'particle_spark', {
+            speed:    { min: 25, max: 65 },
+            angle:    { min: -25, max: 25 },
+            scale:    { start: 0.55, end: 0 },
+            alpha:    { start: 0.75, end: 0 },
+            tint:     SPARK_TINTS,
+            lifespan: { min: 80,  max: 160 },
+            gravityY: 60,
+            emitting: false,
+        });
+        this._sparkRight.setDepth(9999);
+
+        // Delicate ring shimmer (new item landing on stack)
+        this._landingEmitter = scene.add.particles(0, 0, 'particle_spark', {
+            speed:    { min: 45, max: 60 },    // tight range → clean ring shape
+            angle:    { min: 0,   max: 360 },
+            scale:    { start: 0.75, end: 0 },
+            alpha:    { start: 0.85, end: 0 },
+            tint:     SPARK_TINTS,
+            lifespan: { min: 200, max: 320 },
+            gravityY: 15,
+            emitting: false,
+        });
+        this._landingEmitter.setDepth(9999);
     }
 
     // isMoving is supplied by the caller (Player already knows its velocity).
@@ -74,48 +116,78 @@ export class StackManager {
 
             let targetX;
             let targetY;
+            let bounceOffset = 0;
 
             if (isMoving) {
-                // ── Primary: vertical accordion ──────────────────────────
+                // ── Primary: asymmetric slam bounce ───────────────────────
                 //
-                // Each item i has its phase shifted forward by _bouncePhaseStep
-                // radians.  This makes item 0 peak first, then item 1 slightly
-                // later, and so on — a kinetic ripple travelling up the stack.
-                //
-                // At sine peak  (+1): item moves UP   → gap to item above opens
-                // At sine trough(-1): item moves DOWN → item compresses toward stackY
-                //
-                // The result is items briefly clacking apart then snapping back,
-                // like a column of coins struck from below.
+                // abs(sin) gives a shape that lifts to a peak then falls
+                // back to zero — always non-negative, so the item only
+                // hops ABOVE stackY and never sinks below it.
+                // Negating maps positive values to upward screen movement.
                 const bouncePhase =
                     time * this._bounceFrequency + i * this._bouncePhaseStep;
 
-                // Negate: positive sine → negative Y offset → upward in screen space.
-                const bounceOffset =
-                    -Math.sin(bouncePhase) * this._bounceAmplitude;
+                bounceOffset =
+                    -Math.abs(Math.sin(bouncePhase)) * this._bounceAmplitude;
 
                 targetY = item.stackY + bounceOffset;
 
                 // ── Secondary: horizontal instability ────────────────────
-                //
-                // factor = 0 at the base (rigid anchor), 1 at the apex.
-                // A single-item stack always gets factor 0 — no sway at all.
                 const factor = count > 1 ? i / (count - 1) : 0;
-
                 const swayPhase =
                     time * this._swayFrequency + i * this._swayPhaseStep;
 
                 targetX =
                     Math.sin(swayPhase) * this._swayAmplitude * factor;
             } else {
-                // ── Idle: return to canonical rest positions ──────────────
                 targetX = 0;
                 targetY = item.stackY;
             }
 
+            // ── Impact detection ─────────────────────────────────────────
+            //
+            // An item "slams" when it was airborne (offset < -1) last frame
+            // and has now returned to rest (offset ≈ 0).
+            const prevOffset = this._prevOffsets.get(item) ?? 0;
+            const wasAirborne = prevOffset < -1;
+            const nowResting  = bounceOffset > -1;
+
+            if (isMoving && wasAirborne && nowResting) {
+                this._onImpact(item);
+            }
+
+            this._prevOffsets.set(item, bounceOffset);
+
             item.x = Phaser.Math.Linear(item.x, targetX, this._wobbleLerp);
             item.y = Phaser.Math.Linear(item.y, targetY, this._wobbleLerp);
         }
+    }
+
+    // ── Walking slam impact ───────────────────────────────────────────────
+
+    _onImpact(item) {
+        // Micro-shake: gentle 1-frame jolt
+        item.x += (Math.random() - 0.5) * 3;
+        item.y += (Math.random() - 0.5) * 1.5;
+
+        // Two fine sparks each side at the contact point
+        const halfH = (item.displayHeight ?? this.itemSpacing) * 0.5;
+        const worldX = this.container.x + item.x;
+        const worldY = this.container.y + item.y + halfH;
+
+        this._sparkLeft.emitParticleAt(worldX, worldY, 2);
+        this._sparkRight.emitParticleAt(worldX, worldY, 2);
+    }
+
+    // ── New-item landing ring ─────────────────────────────────────────────
+
+    _onLanding(item) {
+        const worldX = this.container.x;
+        const worldY = this.container.y + item.stackY;
+
+        // Delicate ring shimmer — 10 particles, clean radial spread
+        this._landingEmitter.emitParticleAt(worldX, worldY, 10);
     }
 
     // ── Magnetism ────────────────────────────────────────────────────────
@@ -215,6 +287,9 @@ export class StackManager {
 
         itemSprite.scaleX = 1;
         itemSprite.scaleY = 1;
+
+        // Ring explosion at the landing point
+        this._onLanding(itemSprite);
 
         // Beat 1 — hard squash
         this.scene.tweens.add({

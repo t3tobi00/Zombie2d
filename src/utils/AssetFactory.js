@@ -169,6 +169,13 @@ export class AssetFactory {
         g.fillRect(6, 2, 4, 12);
         g.fillRect(2, 6, 12, 4);
         g.generateTexture('item_essence', 16, 16);
+        g.clear();
+
+        // ── PARTICLE SPARK ───────────────────────────────────────────────
+        // 8×8 bright circle — tinted at emitter level for metal-clash sparks
+        g.fillStyle(0xffffff, 1);
+        g.fillCircle(4, 4, 4);
+        g.generateTexture('particle_spark', 8, 8);
 
         g.destroy();
     }
