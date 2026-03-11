@@ -18,3 +18,13 @@ One-line check in your MainScene.js using the test utility:
 
 // Instant visual check without registering a permanent texture
 NewAssetClass.testInScene(this, 100, 100, { some: 'config' });
+
+
+
+Whenever you design new items in 
+AssetFactory.js
+, you simply need to add one extra line in 
+getItemSpacing
+ in the 
+StackManager
+ for that specific object's thickness!

@@ -18,11 +18,22 @@ Bio-Stacker is a Top-Down Hybrid Crafty-Buildy-Strategy Simulation (CBSS). The p
 
 The project uses a highly modular ES6 architecture, favoring composition over inheritance to ensure scalability for future entities (Bots, Zombies) and mechanics.
 
-```text
 Bio-Stacker/
 ├── index.html
 └── src/
     ├── main.js
+    ├── assets/
+    │   ├── icons/
+    │   │   ├── IconCoin.js
+    │   │   ├── IconHouse.js
+    │   │   ├── IconPlus.js
+    │   │   └── IconSyringe.js
+    │   ├── items/
+    │   │   ├── BulletAsset.js
+    │   │   └── CoinAsset2.js
+    │   └── zones/
+    │       ├── UnlockZone.js
+    │       └── UnlockZonePlate.js
     ├── components/
     │   ├── Movement.js
     │   └── StackManager.js
@@ -34,10 +45,11 @@ Bio-Stacker/
     │   └── GridEnvironment.js
     ├── scenes/
     │   └── MainScene.js
+    ├── templates/
+    │   └── BaseAsset.js
     └── utils/
-        └── AssetFactory.js
-
-```
+        ├── AssetFactory.js
+        └── ResourceAnimator.js
 
 ## 🏗️ 3. Architecture & Module Breakdown
 
@@ -46,9 +58,18 @@ Bio-Stacker/
 * **`index.html`**: The entry point. Loads the Phaser 3 library via CDN and imports `src/main.js` as an ES6 `<script type="module">`.
 * **`src/main.js`**: The Phaser Game configuration. Initializes the canvas (800x600), sets the background color, initializes the Arcade Physics engine (with 0 gravity for top-down view), and loads the `MainScene`.
 
-### Utilities
+### Utilities & Assets
 
-* **`src/utils/AssetFactory.js`**: The central graphics generator. Instead of loading external `.png` files, this class uses Phaser's `Graphics` API to procedurally draw and generate textures (`body_player`, `leg_player`, `road_tile`, `wall_tile`, `item_essence`) into the game's memory during the `preload` phase. It maintains a central `COLORS` dictionary for a consistent art palette.
+* **`src/templates/BaseAsset.js`**: A standardized template for all procedurally generated assets.
+* **`src/utils/AssetFactory.js`**: The central graphics generator. Uses Phaser's `Graphics` API and the modular asset classes (e.g., `CoinAsset2`, `IconHouse`) to procedurally draw and generate textures into the game's memory during the `preload` phase.
+* **`src/utils/ResourceAnimator.js`**: A reusable animation utility for handling complex tweens like the arcing "flight" and squash-and-stretch "impact" of resources moving between entities and zones.
+
+### UI & Zones
+
+* **`src/assets/icons/`**: Contains modular ES6 classes for generating specific UI graphics (`IconHouse`, `IconSyringe`, `IconPlus`).
+* **`src/assets/zones/`**:
+  * **`UnlockZonePlate.js`**: Generates the 3D visual base plate for interactive zones, handling normal and pressed states.
+  * **`UnlockZone.js`**: A functional container class that acts as a physical unlocking area. It handles physics overlaps, drains items from a player's stack one by one, animates the transfer using `ResourceAnimator`, and triggers a callback upon completion.
 
 ### Scenes & Environment
 
@@ -76,22 +97,24 @@ Bio-Stacker/
 
 ### Components (Reusable Logic)
 
-* **`src/components/Movement.js`**: Isolates keyboard input. Maps WASD keys and returns a normalized `Phaser.Math.Vector2` velocity vector.
 * **`src/components/StackManager.js`**: The most complex and vital component. Handles the "Infinite Stack" illusion.
 * *Container Logic*: Creates a visual stack container that follows the owner's X/Y coordinates but **does not rotate** with them, preserving the vertical tower illusion.
 * *Queueing*: Uses a `collectionQueue` array to process items one at a time.
-* *Juice/Animation*: When `magnetize()` is called, it triggers a two-part tween: Phase 1 (pop up into the air) and Phase 2 (arc aggressively onto the target stack height). Completes with a satisfying squash-and-stretch impact tween.
+* *Dynamic Heights*: Uses `getItemSpacing(textureKey)` to automatically adjust the vertical spacing between items based on their visual thickness (e.g., 16px for a coin, 8px for a bullet), preventing clipping in mixed stacks.
+* *Constraints*: Accepts a configuration object (`allowedItems`, `allowMixed`) to restrict which entities can carry which types of resources, and whether they can mix them.
+* *Gravity Drop*: When an item is `popFromStack()`, the remaining items smoothly animate down to fill the gap via `recalculateStackPositions()`.
 
 
 
 ## ⚙️ 4. Core Mechanics Currently Implemented
 
-1. **Procedural 2.5D Rendering**: Characters are drawn via code with waddling, forced-perspective legs.
-2. **8-Way Movement**: WASD input with velocity normalization (diagonals are not faster than cardinal directions).
-3. **Dynamic Facing**: Character body rotates to face the exact angle of movement.
-4. **Math-Based Magnetic Radius**: Instead of expensive physics overlaps, the game uses Pythagorean distance checking (`Phaser.Math.Distance.Between`) every frame to vacuum items within a specific radius (currently 120px).
-5. **Sequential Stacking Animation**: Items queued in the magnet zone fly one-by-one with easing tweens to create a satisfying, rapid-fire visual stacking effect.
-6. **Stack Friction**: The player's base speed (250) is dynamically reduced by the length of the StackManager's item array, simulating the weight of the tower.
+1. **Procedural 2.5D Rendering**: Assets (like `CoinAsset2`) and characters are drawn via code with forced-perspective to create a 3D illusion without 3D models.
+2. **Modular Assets System**: All graphics and UI elements extend a base template, allowing rapid instantiation and visual tweaking.
+3. **8-Way Movement & Facing**: WASD input with velocity normalization and dynamic body rotation to face the angle of movement.
+4. **Distance Magnetism & Constraints**: Uses Pythagorean distance checking (`Phaser.Math.Distance.Between`) to vacuum items. Components like `StackManager` enforce rules on what items an entity is allowed to collect.
+5. **Dynamic Sequential Stacking**: Items fly into backpacks with parabolic arcs and squash/stretch physics. The stack mathematically adjusts to the specific thickness of different items, and remaining items fall to fill gaps when objects are removed.
+6. **Stack Friction**: The player's base speed is dynamically reduced by the length of the StackManager's item array, simulating the weight of the tower.
+7. **Animated Unlock Zones**: Physical zones that detect player overlaps, forcibly pop items off the player's back, and animate them being "absorbed" into the zone to pay down a cost counter.
 
 ## 🚀 5. Roadmap & Next Steps
 

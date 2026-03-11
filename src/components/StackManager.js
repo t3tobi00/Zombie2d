@@ -1,21 +1,27 @@
 import { ResourceAnimator } from '../utils/ResourceAnimator.js';
 
 export class StackManager {
-    constructor(scene, owner) {
+    constructor(scene, owner, config = {}) {
         this.scene = scene;
         this.owner = owner;
         this.items = [];
         this.collectionQueue = [];
 
+        // Stack configuration parameters
+        this.config = Object.assign({
+            allowedItems: null,   // Array of texture keys e.g. ['item_coin']. If null, allows any.
+            allowMixed: false     // If false, can only carry ONE type of item at a time
+        }, config);
+
         this.container = scene.add.container(owner.x, owner.y);
         this._lastDepth = null;
 
-        this.itemSpacing = 16; // default 6
-        this.animSpeed = 200;
+        this.defaultItemSpacing = 16;
+        this.animSpeed = 200; // default 200
 
         // ── Backpack mount tuning ────────────────────────────────────────
         this.backpackOffsetX = 8;   // horizontal shift behind character
-        this.backpackOffsetY = 6;   // lower the mount point to shoulders
+        this.backpackOffsetY = 0;   // lower the mount point to shoulders, default: 6
 
         // ── Wobble config ────────────────────────────────────────────────
         this._bounceAmplitude = 18;
@@ -203,6 +209,9 @@ export class StackManager {
             const drop = drops[i];
             if (drop.state !== 'idle') continue;
 
+            // Check if stack can accept this item type before attempting to magnetize
+            if (!this.canAcceptItem(drop.texture.key)) continue;
+
             const dist = Phaser.Math.Distance.Between(
                 this.owner.x,
                 this.owner.y,
@@ -225,6 +234,38 @@ export class StackManager {
         if (this.collectionQueue.length === 1) this.processNextInQueue();
     }
 
+    /**
+     * Determines whether the stack is allowed to pick up a specific item type
+     * based on its configuration and current contents.
+     */
+    canAcceptItem(textureKey) {
+        // 1. Is it in the allowed list?
+        if (this.config.allowedItems && !this.config.allowedItems.includes(textureKey)) {
+            return false; // Not allowed to pick up this specific item type
+        }
+
+        // 2. Are we enforcing unmixed stacks? (Only one type of item at a time)
+        if (!this.config.allowMixed) {
+            let currentType = null;
+
+            // Check what we are already holding
+            if (this.items.length > 0) {
+                currentType = this.items[0].texture.key;
+            }
+            // Also check what is flying towards us in the queue
+            else if (this.collectionQueue.length > 0) {
+                currentType = this.collectionQueue[0].texture.key;
+            }
+
+            // If we have items, and the new item doesn't match the current type, reject it
+            if (currentType && currentType !== textureKey) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     processNextInQueue() {
         if (this.collectionQueue.length === 0) return;
 
@@ -237,8 +278,7 @@ export class StackManager {
         item.x = worldX - this.container.x;
         item.y = worldY - this.container.y;
 
-        const stackIndex = this.items.length;
-        item.stackY = -(stackIndex * this.itemSpacing);
+        item.stackY = -this.calculateCurrentStackHeight();
 
         // --- Extracted to ResourceAnimator ---
         ResourceAnimator.flyTo(item, { x: 0, y: item.stackY }, {
@@ -262,6 +302,41 @@ export class StackManager {
         this.collectionQueue.shift();
         this.processNextInQueue();
     }
+
+    /**
+     * Dictionary/Switch returning visual spacing specific to each resource's texture key.
+     */
+    getItemSpacing(textureKey) {
+        switch (textureKey) {
+            case 'item_coin': return 16;    // V2 Coin thickness
+            case 'item_bullet': return 8;   // Bullets stack tighter
+            case 'item_essence': return 12; // Example for other resources
+            default: return this.defaultItemSpacing;
+        }
+    }
+
+    /**
+     * Measure the total 3D vertical height of the current stack.
+     */
+    calculateCurrentStackHeight() {
+        let height = 0;
+        for (let i = 0; i < this.items.length; i++) {
+            height += this.getItemSpacing(this.items[i].texture.key);
+        }
+        return height;
+    }
+
+    /**
+     * Smoothly reposition remaining items vertically if the stack hierarchy changes.
+     */
+    recalculateStackPositions() {
+        let currentStackY = 0;
+        for (let i = 0; i < this.items.length; i++) {
+            this.items[i].stackY = -currentStackY;
+            currentStackY += this.getItemSpacing(this.items[i].texture.key);
+        }
+    }
+
     popFromStack(resourceKey = null) {
         if (this.items.length === 0) return null;
 
@@ -291,6 +366,9 @@ export class StackManager {
 
         // Items removed from stack should reset their state
         item.state = 'idle';
+
+        // Auto-adjust physics spacing for all existing stacked items down the chain
+        this.recalculateStackPositions();
 
         return item;
     }

@@ -8,7 +8,15 @@ export class Player extends Character {
 
         this.baseSpeed = 250; // Store the original healthy speed
         this.movement = new Movement(scene, this.baseSpeed);
-        this.stackManager = new StackManager(scene, this);
+        
+        // Pass configuration to StackManager
+        // - allowedItems: ['item_coin'] means Player can ONLY pick up coin items.
+        //   (Add 'item_bullet', 'item_essence' to this array if they should carry others)
+        // - allowMixed: false means they can only hold one type at a time.
+        this.stackManager = new StackManager(scene, this, {
+            allowedItems: ['item_coin'], 
+            allowMixed: false
+        });
 
         // Velocity vector re-used each frame to avoid GC pressure.
         this._velocity = new Phaser.Math.Vector2();
