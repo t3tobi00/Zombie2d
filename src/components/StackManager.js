@@ -10,7 +10,7 @@ export class StackManager {
         this.container = scene.add.container(owner.x, owner.y);
         this._lastDepth = null;
 
-        this.itemSpacing = 16;
+        this.itemSpacing = 6;
         this.animSpeed = 200;
 
         // ── Backpack mount tuning ────────────────────────────────────────
@@ -261,5 +261,37 @@ export class StackManager {
 
         this.collectionQueue.shift();
         this.processNextInQueue();
+    }
+    popFromStack(resourceKey = null) {
+        if (this.items.length === 0) return null;
+
+        let index = -1;
+        if (!resourceKey) {
+            index = this.items.length - 1;
+        } else {
+            for (let i = this.items.length - 1; i >= 0; i--) {
+                if (this.items[i].texture.key === resourceKey) {
+                    index = i;
+                    break;
+                }
+            }
+        }
+
+        if (index === -1) return null;
+
+        const item = this.items.splice(index, 1)[0];
+
+        // Convert local position to world position before detaching
+        const worldPos = new Phaser.Math.Vector2();
+        this.container.getWorldTransformMatrix().transformPoint(item.x, item.y, worldPos);
+
+        this.container.remove(item);
+        item.x = worldPos.x;
+        item.y = worldPos.y;
+
+        // Items removed from stack should reset their state
+        item.state = 'idle';
+
+        return item;
     }
 }
