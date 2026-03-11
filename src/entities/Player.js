@@ -30,6 +30,8 @@ export class Player extends Character {
         this.updateFacing(this._velocity, time, delta);
 
         // ── 5. Update the stack (it manages its own world position) ──────
-        this.stackManager.update();
+
+        const isMoving = this._velocity.length() > 10;
+        this.stackManager.update(time, delta, isMoving);
     }
 }
