@@ -10,7 +10,7 @@ export class StackManager {
         this.container = scene.add.container(owner.x, owner.y);
         this._lastDepth = null;
 
-        this.itemSpacing = 6;
+        this.itemSpacing = 16; // default 6
         this.animSpeed = 200;
 
         // ── Backpack mount tuning ────────────────────────────────────────

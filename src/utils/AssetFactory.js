@@ -1,5 +1,9 @@
-import { CoinAsset } from '../assets/items/CoinAsset.js';
+import { CoinAsset2 } from '../assets/items/CoinAsset2.js';
 import { BulletAsset } from '../assets/items/BulletAsset.js';
+import { IconHouse } from '../assets/icons/IconHouse.js';
+import { IconSyringe } from '../assets/icons/IconSyringe.js';
+import { IconPlus } from '../assets/icons/IconPlus.js';
+import { UnlockZonePlate } from '../assets/zones/UnlockZonePlate.js';
 
 /**
  * AssetFactory.js (Refactored)
@@ -34,14 +38,25 @@ export class AssetFactory {
         this.generatePlayerTextures(scene);
         
         // --- 2. MODULAR ITEMS ---
-        // Gold Coin (Default Flat Stackable)
-        CoinAsset.generate(scene, 'item_coin', { radiusX: 12, depth: 3, width: 48, height: 48 });
-        // Larger icon version for UI
-        CoinAsset.generate(scene, 'icon_coin', { radiusX: 16, depth: 4, width: 48, height: 48 });
+        // Gold Coin V2 (Production Version)
+        CoinAsset2.generate(scene, 'item_coin', { faceWidth: 24, faceHeight: 16, depth: 8, outlineThickness: 2, width: 48, height: 48 });
+        // UI version
+        CoinAsset2.generate(scene, 'ui_icon_coin', { faceWidth: 22, faceHeight: 14, depth: 6, outlineThickness: 1.5, width: 32, height: 32 });
         
         // Bullets (Default Top-Down Ammo)
         BulletAsset.generate(scene, 'item_bullet', { width: 32, height: 32, orientation: 'vertical' });
         BulletAsset.generate(scene, 'icon_bullet', { width: 48, height: 48, orientation: 'vertical', halfW: 9, casingLen: 28 });
+
+        // --- NEW ICONS & ZONES ---
+        IconHouse.generate(scene, 'icon_house', { width: 44, height: 44 });
+        IconSyringe.generate(scene, 'icon_syringe', { width: 38, height: 38 });
+        IconPlus.generate(scene, 'icon_plus', { width: 40, height: 40 });
+        
+        // Old V2 tests removed, now integrated above as primary 'item_coin'
+        
+        const plateCfg = { width: 110, height: 85, depth: 8, radius: 14 };
+        UnlockZonePlate.generate(scene, 'plate_normal', plateCfg);
+        UnlockZonePlate.generate(scene, 'plate_pressed', { ...plateCfg, pressed: true });
 
         // --- 3. LEGACY ENVIRONMENT (To be modularized) ---
         this.generateEnvironmentTextures(scene);
