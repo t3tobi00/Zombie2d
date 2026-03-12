@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phaser 3 - Modular 2.5D Walls</title>
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #222;
+            color: white;
+            font-family: sans-serif;
+        }
+    </style>
+</head>
+
+<body>
+
+    <script>
+        // --- Configuration & Constants ---
+        const THICKNESS = 15; // default 40
+        const BEVEL = 3; // default 3
+
+        // Art Style Colors
+        const COLOR_BASE = 0x6c7a89;  // Mid-grey/blue
+        const COLOR_LIGHT = 0xabb7b7; // Bright highlight
+        const COLOR_DARK = 0x2e3131;  // Deep shadow
+        const SHADOW_COLOR = 0x000000;
+        const SHADOW_ALPHA = 0.3;
+        const SHADOW_OFFSET = 12;
+
+        class MainScene extends Phaser.Scene {
+            constructor() {
+                super({ key: 'MainScene' });
+            }
+
+            create() {
+                const graphics = this.add.graphics();
+
+                // ==========================================
+                // ROOM 1: Left-Entry Room (Right side of screen)
+                // ==========================================
+                // Coordinates for Room 1
+                const r1X = 600;
+                const r1Y = 150;
+                const r1Width = 200;
+                const r1Height = 160;
+
+                // North Wall (Top)
+                this.drawHorizontalWall(graphics, r1X, r1Y, r1Width, THICKNESS);
+                // TR Corner
+                this.drawCorner(graphics, r1X + r1Width, r1Y, THICKNESS, 'TR');
+                // East Wall (Right)
+                this.drawVerticalWall(graphics, r1X + r1Width, r1Y + THICKNESS, r1Height, THICKNESS);
+                // BR Corner
+                this.drawCorner(graphics, r1X + r1Width, r1Y + THICKNESS + r1Height, THICKNESS, 'BR');
+                // South Wall (Bottom)
+                this.drawHorizontalWall(graphics, r1X, r1Y + THICKNESS + r1Height, r1Width, THICKNESS);
+
+                // Cap the open West ends with a Left-Highlight to make them look solid
+                graphics.fillStyle(COLOR_LIGHT, 1);
+                graphics.fillRect(r1X, r1Y, BEVEL, THICKNESS);
+                graphics.fillRect(r1X, r1Y + THICKNESS + r1Height, BEVEL, THICKNESS);
+
+
+                // ==========================================
+                // ROOM 2: Right-Entry Room (Left side of screen)
+                // ==========================================
+                // Coordinates for Room 2
+                const r2X = 150;
+                const r2Y = 150;
+                const r2Width = 200;
+                const r2Height = 160;
+
+                // TL Corner
+                this.drawCorner(graphics, r2X, r2Y, THICKNESS, 'TL');
+                // North Wall (Top)
+                this.drawHorizontalWall(graphics, r2X + THICKNESS, r2Y, r2Width, THICKNESS);
+                // West Wall (Left)
+                this.drawVerticalWall(graphics, r2X, r2Y + THICKNESS, r2Height, THICKNESS);
+                // BL Corner
+                this.drawCorner(graphics, r2X, r2Y + THICKNESS + r2Height, THICKNESS, 'BL');
+                // South Wall (Bottom)
+                this.drawHorizontalWall(graphics, r2X + THICKNESS, r2Y + THICKNESS + r2Height, r2Width, THICKNESS);
+
+                // Cap the open East ends with a Right-Shadow to make them look solid
+                graphics.fillStyle(COLOR_DARK, 1);
+                graphics.fillRect(r2X + THICKNESS + r2Width - BEVEL, r2Y, BEVEL, THICKNESS);
+                graphics.fillRect(r2X + THICKNESS + r2Width - BEVEL, r2Y + THICKNESS + r2Height, BEVEL, THICKNESS);
+            }
+
+            // --- Helper Functions ---
+
+            drawHorizontalWall(graphics, x, y, length, thickness) {
+                // Drop Shadow
+                graphics.fillStyle(SHADOW_COLOR, SHADOW_ALPHA);
+                graphics.fillRect(x + SHADOW_OFFSET, y + SHADOW_OFFSET, length, thickness);
+
+                // Base
+                graphics.fillStyle(COLOR_BASE, 1);
+                graphics.fillRect(x, y, length, thickness);
+
+                // Top Highlight
+                graphics.fillStyle(COLOR_LIGHT, 1);
+                graphics.fillRect(x, y, length, BEVEL);
+
+                // Bottom Shadow
+                graphics.fillStyle(COLOR_DARK, 1);
+                graphics.fillRect(x, y + thickness - BEVEL, length, BEVEL);
+            }
+
+            drawVerticalWall(graphics, x, y, length, thickness) {
+                // Drop Shadow
+                graphics.fillStyle(SHADOW_COLOR, SHADOW_ALPHA);
+                graphics.fillRect(x + SHADOW_OFFSET, y + SHADOW_OFFSET, thickness, length);
+
+                // Base
+                graphics.fillStyle(COLOR_BASE, 1);
+                graphics.fillRect(x, y, thickness, length);
+
+                // Left Highlight
+                graphics.fillStyle(COLOR_LIGHT, 1);
+                graphics.fillRect(x, y, BEVEL, length);
+
+                // Right Shadow
+                graphics.fillStyle(COLOR_DARK, 1);
+                graphics.fillRect(x + thickness - BEVEL, y, BEVEL, length);
+            }
+
+            drawCorner(graphics, x, y, size, type) {
+                // Drop Shadow
+                graphics.fillStyle(SHADOW_COLOR, SHADOW_ALPHA);
+                graphics.fillRect(x + SHADOW_OFFSET, y + SHADOW_OFFSET, size, size);
+
+                // Base Floor Block
+                graphics.fillStyle(COLOR_BASE, 1);
+                graphics.fillRect(x, y, size, size);
+
+                // Bevel Logic based on Corner Type
+                if (type === 'TR') {
+                    // Outer Bevels
+                    graphics.fillStyle(COLOR_LIGHT, 1);
+                    graphics.fillRect(x, y, size, BEVEL); // Top
+                    graphics.fillStyle(COLOR_DARK, 1);
+                    graphics.fillRect(x + size - BEVEL, y, BEVEL, size); // Right
+
+                    // Inner Corner Miter (North Bottom Shadow meets East Left Highlight)
+                    graphics.fillStyle(COLOR_LIGHT, 1);
+                    graphics.fillTriangle(x, y + size - BEVEL, x + BEVEL, y + size - BEVEL, x + BEVEL, y + size);
+                    graphics.fillStyle(COLOR_DARK, 1);
+                    graphics.fillTriangle(x, y + size - BEVEL, x + BEVEL, y + size, x, y + size);
+                }
+                else if (type === 'BR') {
+                    // Outer Bevels
+                    graphics.fillStyle(COLOR_DARK, 1);
+                    graphics.fillRect(x, y + size - BEVEL, size, BEVEL); // Bottom
+                    graphics.fillRect(x + size - BEVEL, y, BEVEL, size); // Right
+
+                    // Inner Corner Miter (East Left Highlight meets South Top Highlight)
+                    graphics.fillStyle(COLOR_LIGHT, 1);
+                    graphics.fillRect(x, y, BEVEL, BEVEL); // Both are highlights, so it's a solid block
+                }
+                else if (type === 'TL') {
+                    // Outer Bevels
+                    graphics.fillStyle(COLOR_LIGHT, 1);
+                    graphics.fillRect(x, y, size, BEVEL); // Top
+                    graphics.fillRect(x, y, BEVEL, size); // Left
+
+                    // Inner Corner Miter (North Bottom Shadow meets West Right Shadow)
+                    graphics.fillStyle(COLOR_DARK, 1);
+                    graphics.fillRect(x + size - BEVEL, y + size - BEVEL, BEVEL, BEVEL); // Both are shadows
+                }
+                else if (type === 'BL') {
+                    // Outer Bevels
+                    graphics.fillStyle(COLOR_DARK, 1);
+                    graphics.fillRect(x, y + size - BEVEL, size, BEVEL); // Bottom
+                    graphics.fillStyle(COLOR_LIGHT, 1);
+                    graphics.fillRect(x, y, BEVEL, size); // Left
+
+                    // Inner Corner Miter (West Right Shadow meets South Top Highlight)
+                    graphics.fillStyle(COLOR_DARK, 1);
+                    graphics.fillTriangle(x + size - BEVEL, y, x + size, y, x + size, y + BEVEL);
+                    graphics.fillStyle(COLOR_LIGHT, 1);
+                    graphics.fillTriangle(x + size - BEVEL, y, x + size - BEVEL, y + BEVEL, x + size, y + BEVEL);
+                }
+            }
+        }
+
+        const config = {
+            type: Phaser.AUTO,
+            width: 1000,
+            height: 600,
+            backgroundColor: '#e0e4e5', // Light floor color
+            scene: MainScene
+        };
+
+        const game = new Phaser.Game(config);
+    </script>
+</body>
+
+</html>

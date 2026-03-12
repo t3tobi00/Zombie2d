@@ -18,7 +18,7 @@ export class StackManager {
         this._lastDepth = null;
 
         this.defaultItemSpacing = 16;
-        this.animSpeed = 200; // default 200
+        this.animSpeed = 600; // default 200
 
         // ── Backpack mount tuning ────────────────────────────────────────
         this.backpackOffsetX = 8;   // horizontal shift behind character
@@ -274,6 +274,28 @@ export class StackManager {
         if (this.collectionQueue.length === 0) return;
 
         const item = this.collectionQueue[0];
+        
+        // --- Distance Validation ---
+        // Check if the player is still nearby before committing to the flight.
+        // We use a slightly larger buffer (1.5x radius) so it doesn't feel "glitchy" 
+        // if they just barely stepped out of the circle.
+        const radius = this.config.magnetRadius || 120;
+        const dist = Phaser.Math.Distance.Between(
+            this.owner.x,
+            this.owner.y,
+            item.x,
+            item.y
+        );
+
+        if (dist > radius * 1.5) {
+            // Player moved too far! Release the item and try the next one.
+            item.state = 'idle';
+            this.scene.physics.world.enable(item);
+            this.collectionQueue.shift();
+            this.processNextInQueue();
+            return;
+        }
+
         item.state = 'flying';
 
         const worldX = item.x;

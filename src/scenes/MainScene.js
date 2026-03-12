@@ -15,48 +15,41 @@ export class MainScene extends Phaser.Scene {
     }
 
     create() {
-        GridEnvironment.create(this);
-        this.player = new Player(this, 100, 100, 'player');
-        this.player.setDepth(10);
+        // --- WORLD & CAMERA BOUNDS ---
+        const worldWidth = 3000;
+        const worldHeight = 3000;
+        const centerX = worldWidth / 2;
+        const centerY = worldHeight / 2;
 
+        this.physics.world.setBounds(0, 0, worldWidth, worldHeight);
+        this.cameras.main.setBounds(0, 0, worldWidth, worldHeight);
+
+        GridEnvironment.create(this, centerX, centerY, worldWidth, worldHeight);
+
+        this.player = new Player(this, centerX, centerY, 'player');
+        this.player.setDepth(10);
+        
+        // --- CAMERA FOLLOW ---
+        this.cameras.main.startFollow(this.player, true, 0.08, 0.08); // Smooth lerp follow
+        this.cameras.main.setZoom(0.85); // Wider strategy view
 
         // --- SPAWN DROPS TO TEST ---
         this.dropsGroup = this.add.group();
-        this.unlockZones = this.add.group(); 
+        this.unlockZones = this.add.group();
         this.storageZones = this.add.group(); // New group for storage zones
 
-        // Spawn some coins
+        // Spawn some coins relative to player
         for (let i = 0; i < 10; i++) {
-            this.dropsGroup.add(new ResourceDrop(this, 200 + i * 15, 100, 'item_coin'));
+            this.dropsGroup.add(new ResourceDrop(this, centerX - 100 + i * 15, centerY - 150, 'item_coin'));
         }
 
-        // Spawn some bullets (Testing if player can pick them up or not)
+        // Spawn some bullets relative to player
         for (let i = 0; i < 5; i++) {
-            this.dropsGroup.add(new ResourceDrop(this, 200 + i * 40, 200, 'item_bullet'));
+            this.dropsGroup.add(new ResourceDrop(this, centerX + 100 + i * 40, centerY - 100, 'item_bullet'));
         }
-
-        // --- DISPLAY EXTRACTED ICONS ---
-        // this.add.image(150, 400, 'icon_house');
-        // this.add.text(150, 440, 'House', { fontSize: '14px', fill: '#fff' }).setOrigin(0.5);
-
-        // this.add.image(250, 400, 'icon_syringe');
-        // this.add.text(250, 440, 'Syringe', { fontSize: '14px', fill: '#fff' }).setOrigin(0.5);
-
-        // this.add.image(350, 400, 'icon_plus');
-        // this.add.text(350, 440, 'Plus', { fontSize: '14px', fill: '#fff' }).setOrigin(0.5);
-
-        // --- COIN STACK PREVIEW ---
-        // Showing a stack of the new V2 coins to see the vertical pile look
-        // const stackX = 500;
-        // const stackBaseY = 400;
-        // for (let j = 0; j < 8; j++) {
-        //     this.add.image(stackX, stackBaseY - (j * 6), 'item_coin');
-        // }
-        // this.add.text(stackX, 440, 'Coin V2 Stack', { fontSize: '14px', fill: '#fff' }).setOrigin(0.5);
 
         // --- DISPLAY UNLOCK ZONE ---
-        // Using the new Coin V2 as the price icon
-        const zone = new UnlockZone(this, 300, 500, {
+        const zone = new UnlockZone(this, centerX - 200, centerY + 200, {
             output_icon: 'icon_house',
             input_icon: 'ui_icon_coin',
             number: 10,
@@ -67,18 +60,22 @@ export class MainScene extends Phaser.Scene {
             onComplete: () => console.log("BOUGHT HOUSE!")
         });
         this.unlockZones.add(zone);
-        
-        this.storageZones.add(new StorageZone(this, 500, 500, {
+
+        // --- ROOM FOR SURVIVORS ---
+        const room = this.add.image(centerX + 300, centerY - 100, 'room_sleeping');
+        room.setDepth(1); 
+
+        this.storageZones.add(new StorageZone(this, centerX + 200, centerY + 200, {
             plate_normal: 'plate_normal',
             plate_pressed: 'plate_pressed',
             depth: 8,
-            resourceType: 'item_coin' // Strictly coins for this one
+            resourceType: 'item_coin' 
         }));
     }
 
     update(time, delta) {
         this.player.update(time, delta);
-        
+
         // Update all storage zones (for wobbles/stack animations)
         this.storageZones.getChildren().forEach(zone => zone.update(time, delta));
 

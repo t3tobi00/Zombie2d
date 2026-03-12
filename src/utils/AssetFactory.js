@@ -4,6 +4,7 @@ import { IconHouse } from '../assets/icons/IconHouse.js';
 import { IconSyringe } from '../assets/icons/IconSyringe.js';
 import { IconPlus } from '../assets/icons/IconPlus.js';
 import { UnlockZonePlate } from '../assets/zones/UnlockZonePlate.js';
+import { RoomAsset } from '../assets/items/RoomAsset.js';
 
 /**
  * AssetFactory.js (Refactored)
@@ -57,6 +58,12 @@ export class AssetFactory {
         const plateCfg = { width: 110, height: 85, depth: 8, radius: 14 };
         UnlockZonePlate.generate(scene, 'plate_normal', plateCfg);
         UnlockZonePlate.generate(scene, 'plate_pressed', { ...plateCfg, pressed: true });
+
+        // Sleeping Room for Survivors (Ported from room.html pattern)
+        RoomAsset.generate(scene, 'room_sleeping', { 
+            width: 300, height: 300, // Texture size
+            floorWidth: 200, floorHeight: 160 
+        });
 
         // --- 3. LEGACY ENVIRONMENT (To be modularized) ---
         this.generateEnvironmentTextures(scene);
